@@ -51,7 +51,10 @@
       "label": "Product Manager (AI/Data)",
       "color": "#f97316",
       "searches": [
-        "associate product manager"
+        "associate product manager",
+        "junior product manager",
+        "product analyst",
+        "technical product manager AI"
       ],
       "title_keywords": ["product manager", "product owner", "associate product manager"],
       "must_also_contain": ["ai", "ml", "machine learning", "data", "analytics", "llm", "platform", "tech"],
@@ -65,7 +68,10 @@
       "label": "Project Manager",
       "color": "#6b7280",
       "searches": [
-        "project coordinator"
+        "project coordinator",
+        "junior project manager",
+        "digital project manager",
+        "technical project manager"
       ],
       "title_keywords": ["project manager", "project coordinator", "delivery manager", "technical project manager", "program manager"],
       "must_also_contain": ["software", "tech", "digital", "data", "it", "agile", "product", "engineering", "platform"],
