@@ -27,16 +27,16 @@ cat > "$PLIST_PATH" << EOF
         <string>$RUNNER</string>
     </array>
 
-    <!-- Run at 8:00 AM every day -->
+    <!-- Run at midnight every day -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
-        <integer>8</integer>
+        <integer>0</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>
 
-    <!-- If the Mac was asleep at 8am, run shortly after next wake -->
+    <!-- If the Mac was asleep at midnight, run shortly after next wake -->
     <key>RunAtLoad</key>
     <false/>
 
@@ -52,7 +52,7 @@ EOF
 launchctl unload "$PLIST_PATH" 2>/dev/null
 launchctl load "$PLIST_PATH"
 
-echo "✓ launchd agent installed — runs at 8:00 AM daily."
+echo "✓ launchd agent installed — runs at midnight daily."
 echo "  Missed runs (e.g. Mac was asleep) fire shortly after next wake."
 echo ""
 echo "Useful commands:"
