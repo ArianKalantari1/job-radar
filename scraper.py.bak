@@ -1,0 +1,304 @@
+"""
+job-radar: scraper module
+Pulls jobs from Seek, LinkedIn, and Indeed using JobSpy, then dedupes against a SQLite cache.
+"""
+from __future__ import annotations
+
+import hashlib
+import re
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+from jobspy import scrape_jobs
+
+DB_PATH = Path(__file__).parent / "jobs.db"
+
+
+def _norm(s: str | None) -> str:
+    """Normalise a string for fingerprinting: lowercase, collapse whitespace, strip."""
+    if not s:
+        return ""
+    return re.sub(r"\s+", " ", str(s)).strip().lower()
+
+
+def fingerprint(title: str | None, company: str | None, location: str | None) -> str:
+    """
+    Content hash to catch the same job posted across multiple sites.
+    Uses title + company + location only — salary and description vary even for
+    identical jobs, so we leave them out.
+    """
+    key = f"{_norm(title)}|{_norm(company)}|{_norm(location)}"
+    return hashlib.md5(key.encode("utf-8")).hexdigest()
+
+
+@dataclass
+class SearchConfig:
+    """One search query against the job sites."""
+    label: str
+    search_term: str
+    location: str = "Sydney, Australia"
+    # NOTE: The PyPI 'python-jobspy' package does NOT support Seek.
+    # Supported sites: linkedin, indeed, google, glassdoor, zip_recruiter, bayt, naukri, bdjobs.
+    # Indeed + LinkedIn cover most AU listings; google is a meta-aggregator.
+    sites: tuple[str, ...] = ("linkedin", "indeed", "google", "glassdoor")
+    results_wanted: int = 25
+    hours_old: int = 168  # last 7 days
+
+
+# Edit these to match your target roles.
+# The labels are just for your reference. The search_term is what gets queried.
+SEARCHES: list[SearchConfig] = [
+    # --- Data / Analytics (junior / associate) ---
+    SearchConfig("Analytics Engineer", "analytics engineer dbt"),
+    SearchConfig("Data Engineer Junior", "junior data engineer python sql"),
+    SearchConfig("Data Analyst SQL", "data analyst sql python"),
+    SearchConfig("Analytics Consultant", "analytics consultant"),
+    SearchConfig("BI Analyst", "business intelligence analyst"),
+    SearchConfig("AI Engineer Junior", "AI engineer prompt engineering"),
+    SearchConfig("dbt Snowflake", "dbt snowflake"),
+    SearchConfig("Associate Data Analyst", "associate data analyst"),
+    SearchConfig("CX Analyst", "customer experience analyst"),
+
+    # --- Customer-facing & Account Management ---
+    SearchConfig("Customer Success Manager", "customer success manager"),
+    SearchConfig("Technical Account Manager", "technical account manager"),
+    SearchConfig("Implementation Manager", "implementation manager onboarding specialist"),
+    SearchConfig("Client Services Manager", "client services manager"),
+    SearchConfig("Partner Success Manager", "partner success manager"),
+
+    # --- Operations & Project Management ---
+    SearchConfig("Revenue Operations Analyst", "revenue operations analyst revops"),
+    SearchConfig("Operations Analyst", "operations analyst"),
+    SearchConfig("Business Analyst Associate", "associate business analyst junior business analyst"),
+    SearchConfig("Project Coordinator", "project coordinator associate project manager"),
+
+    # --- High-growth / product-adjacent ---
+    SearchConfig("Associate Product Manager", "associate product manager APM"),
+    SearchConfig("Solutions Consultant", "solutions consultant pre-sales consultant"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Seniority pre-filter
+# ---------------------------------------------------------------------------
+# These keywords in the job TITLE are a hard block — the job is discarded
+# before it ever enters the database or gets scored.
+# Note: "manager" is intentionally NOT here because many target roles
+# (e.g. Customer Success Manager) contain it.
+SENIOR_TITLE_BLOCKLIST: list[str] = [
+    "senior",
+    " sr ",
+    "sr.",
+    "lead ",
+    " lead",
+    "principal",
+    "head of",
+    "director",
+    " vp ",
+    "vice president",
+    "staff engineer",
+    "chief",
+    "c-level",
+    "partner",       # e.g. "Consulting Partner" — too senior
+]
+
+
+def is_too_senior(title: str | None) -> bool:
+    """Return True if the job title signals a level above associate/mid."""
+    if not title:
+        return False
+    t = title.lower()
+    return any(kw in t for kw in SENIOR_TITLE_BLOCKLIST)
+
+
+def filter_seniority(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows whose title is clearly too senior. Logs how many are removed."""
+    if df.empty:
+        return df
+    mask = df["title"].apply(is_too_senior)
+    dropped = mask.sum()
+    if dropped:
+        print(f"  [seniority filter] removed {dropped} over-senior jobs before storing")
+    return df[~mask].reset_index(drop=True)
+
+
+def init_db() -> None:
+    """
+    Create the jobs table if it doesn't exist. Safe to call repeatedly.
+    Also runs a lightweight migration: adds the `fingerprint` column to existing
+    DBs, backfills it, and removes any existing cross-platform duplicates
+    (keeping the earliest sighting per fingerprint).
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS jobs (
+            job_url TEXT PRIMARY KEY,
+            site TEXT,
+            title TEXT,
+            company TEXT,
+            location TEXT,
+            description TEXT,
+            date_posted TEXT,
+            min_amount REAL,
+            max_amount REAL,
+            currency TEXT,
+            search_label TEXT,
+            score INTEGER,
+            score_reasons TEXT,
+            first_seen TEXT,
+            applied INTEGER DEFAULT 0,
+            hidden INTEGER DEFAULT 0,
+            fingerprint TEXT
+        )
+        """
+    )
+
+    # Migration for DBs that pre-date the fingerprint column.
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()]
+    if "fingerprint" not in cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN fingerprint TEXT")
+
+    # Backfill any rows missing a fingerprint.
+    rows = conn.execute(
+        "SELECT job_url, title, company, location FROM jobs WHERE fingerprint IS NULL OR fingerprint = ''"
+    ).fetchall()
+    for url, title, company, location in rows:
+        conn.execute(
+            "UPDATE jobs SET fingerprint = ? WHERE job_url = ?",
+            (fingerprint(title, company, location), url),
+        )
+
+    # One-time cleanup: collapse existing duplicates (same fingerprint, different URL),
+    # keeping the row with the earliest first_seen.
+    conn.execute(
+        """
+        DELETE FROM jobs
+        WHERE rowid NOT IN (
+            SELECT MIN(rowid)
+            FROM jobs
+            GROUP BY fingerprint
+        )
+        """
+    )
+
+    # Non-unique index — speeds up the lookup in upsert_jobs without rejecting writes.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_fingerprint ON jobs(fingerprint)")
+
+    conn.commit()
+    conn.close()
+
+
+def run_searches(searches: list[SearchConfig] = SEARCHES) -> pd.DataFrame:
+    """Run every configured search and return a combined DataFrame of fresh jobs."""
+    all_frames: list[pd.DataFrame] = []
+    for cfg in searches:
+        print(f"  searching: {cfg.label} ({cfg.search_term})")
+        try:
+            df = scrape_jobs(
+                site_name=list(cfg.sites),
+                search_term=cfg.search_term,
+                location=cfg.location,
+                results_wanted=cfg.results_wanted,
+                hours_old=cfg.hours_old,
+                country_indeed="Australia",
+                country_glassdoor="Australia",
+                # google_search_term lets the google aggregator find AU-targeted listings
+                google_search_term=f"{cfg.search_term} jobs near Sydney Australia",
+            )
+            if df is not None and len(df) > 0:
+                df["search_label"] = cfg.label
+                all_frames.append(df)
+                print(f"    -> {len(df)} jobs")
+        except Exception as e:
+            print(f"    !! failed: {e}")
+    if not all_frames:
+        return pd.DataFrame()
+    combined = pd.concat(all_frames, ignore_index=True)
+    # Dedupe within this run by URL
+    combined = combined.drop_duplicates(subset=["job_url"], keep="first")
+    return combined
+
+
+def upsert_jobs(df: pd.DataFrame) -> dict:
+    """
+    Insert new jobs. Skip rows whose URL we've seen, AND rows whose
+    title+company+location fingerprint matches a job we already have
+    (i.e. the same job re-posted on another site).
+
+    Returns a stats dict: {"new", "skipped_url", "skipped_fingerprint"}.
+    """
+    stats = {"new": 0, "skipped_url": 0, "skipped_fingerprint": 0}
+    if df.empty:
+        return stats
+
+    conn = sqlite3.connect(DB_PATH)
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Track fingerprints inserted within THIS run so we don't accept the same
+    # cross-posted job twice from two different searches.
+    seen_fps_this_run: set[str] = set()
+
+    for _, row in df.iterrows():
+        url = row.get("job_url")
+        if not url:
+            continue
+
+        # 1) Same URL already in DB?
+        if conn.execute("SELECT 1 FROM jobs WHERE job_url = ?", (url,)).fetchone():
+            stats["skipped_url"] += 1
+            continue
+
+        # 2) Same job content already in DB or earlier in this run?
+        fp = fingerprint(row.get("title"), row.get("company"), row.get("location"))
+        if fp in seen_fps_this_run or conn.execute(
+            "SELECT 1 FROM jobs WHERE fingerprint = ? LIMIT 1", (fp,)
+        ).fetchone():
+            stats["skipped_fingerprint"] += 1
+            continue
+
+        conn.execute(
+            """
+            INSERT INTO jobs (
+                job_url, site, title, company, location, description,
+                date_posted, min_amount, max_amount, currency,
+                search_label, first_seen, fingerprint
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                url,
+                row.get("site"),
+                row.get("title"),
+                row.get("company"),
+                row.get("location"),
+                row.get("description"),
+                str(row.get("date_posted")) if row.get("date_posted") else None,
+                row.get("min_amount"),
+                row.get("max_amount"),
+                row.get("currency"),
+                row.get("search_label"),
+                now,
+                fp,
+            ),
+        )
+        seen_fps_this_run.add(fp)
+        stats["new"] += 1
+
+    conn.commit()
+    conn.close()
+    return stats
+
+
+if __name__ == "__main__":
+    print("job-radar: starting scrape")
+    init_db()
+    df = run_searches()
+    print(f"\ntotal scraped (deduped within run): {len(df)}")
+    stats = upsert_jobs(df)
+    print(
+        f"new: {stats['new']} | skipped (URL seen): {stats['skipped_url']} | "
+        f"skipped (cross-platform dupe): {stats['skipped_fingerprint']}"
+    )

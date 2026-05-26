@@ -1,0 +1,38 @@
+# Secrets
+.env
+
+# Database
+*.db
+
+# Personal / CV files
+resume.txt
+cv1_analytics_engineer.txt
+cv2_consultant.txt
+
+# Exported CSVs (job data — can be large and contains scraped PII)
+*.csv
+
+# Generated outputs
+dashboard.html
+job-radar.log
+job-radar.zip
+schedule-test.log
+
+# Personalised config
+role_profiles_personalized.json
+scoring_weights.json
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Claude session
+.claude/
