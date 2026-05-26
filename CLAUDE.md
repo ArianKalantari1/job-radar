@@ -15,9 +15,9 @@ This is a single-user tool — not a product, not multi-tenant.
 python run.py --fast
 
 # Full pipeline flags
-python run.py --fast          # rules scorer only (no API cost) — used by cron
+python run.py                 # full pipeline (scrape + score + export CSV)
+python run.py --fast          # same as above (kept for backward compat with run_daily.sh)
 python run.py --no-scrape     # skip scraping, just rescore + re-export
-python run.py --open          # open dashboard in browser when done
 
 # Manual CSV export (the pipeline already does this automatically)
 python export_for_gpt.py                  # last 24h, score >= 50
