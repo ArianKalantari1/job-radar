@@ -7,7 +7,8 @@
       "searches": [
         "data analyst",
         "business intelligence analyst",
-        "insights analyst"
+        "insights analyst",
+        "analytics consultant"
       ],
       "title_keywords": ["data analyst", "business analyst", "bi analyst", "insights analyst", "reporting analyst", "analytics analyst", "bi developer", "data consultant", "analytics consultant", "performance analyst", "business intelligence specialist", "product analytics", "data & performance"],
       "skills_high": ["sql", "tableau", "power bi", "looker", "python", "dbt"],
@@ -22,9 +23,12 @@
       "searches": [
         "analytics engineer",
         "data engineer",
-        "solutions engineer data"
+        "solutions engineer",
+        "forward deployed engineer",
+        "implementation engineer",
+        "implementation consultant"
       ],
-      "title_keywords": ["analytics engineer", "data engineer", "data platform engineer", "implementation consultant", "data product engineer", "forward deployed engineer", "technical consultant", "data architect", "solutions engineer", "ai product engineer"],
+      "title_keywords": ["analytics engineer", "data engineer", "data platform engineer", "implementation consultant", "implementation engineer", "data product engineer", "forward deployed engineer", "technical consultant", "data architect", "solutions engineer", "ai product engineer", "customer engineer", "integration engineer"],
       "skills_high": ["dbt", "snowflake", "bigquery", "airflow", "fivetran", "data modelling"],
       "skills_mid": ["sql", "python", "git", "warehouse", "pipeline", "etl", "elt"],
       "seniority_target": ["mid", "senior"],
@@ -38,9 +42,12 @@
         "data scientist",
         "AI engineer",
         "machine learning engineer",
-        "LLM engineer"
+        "LLM engineer",
+        "GenAI engineer",
+        "applied AI engineer",
+        "AI consultant"
       ],
-      "title_keywords": ["data scientist", "machine learning", "ml engineer", "ai engineer", "applied scientist", "generative ai", "llm engineer", "ai agent engineer", "artificial intelligence engineer", "ai consultant", "ai graduate", "data science expert", "applied ai", "applied ai engineer"],
+      "title_keywords": ["data scientist", "machine learning", "ml engineer", "ai engineer", "applied scientist", "generative ai", "genai engineer", "llm engineer", "ai agent engineer", "artificial intelligence engineer", "ai consultant", "ai graduate", "data science expert", "applied ai", "applied ai engineer", "conversational ai"],
       "skills_high": ["python", "scikit-learn", "tensorflow", "pytorch", "llm", "nlp", "rag", "vector database", "prompt engineering"],
       "skills_mid": ["sql", "statistics", "experimentation", "jupyter", "pandas", "numpy", "azure", "aws", "gcp"],
       "seniority_target": ["junior", "mid", "senior"],
@@ -51,7 +58,10 @@
       "label": "Product Manager (AI/Data)",
       "color": "#f97316",
       "searches": [
-        "associate product manager"
+        "associate product manager",
+        "junior product manager",
+        "product analyst",
+        "technical product manager AI"
       ],
       "title_keywords": ["product manager", "product owner", "associate product manager"],
       "must_also_contain": ["ai", "ml", "machine learning", "data", "analytics", "llm", "platform", "tech"],
@@ -65,7 +75,10 @@
       "label": "Project Manager",
       "color": "#6b7280",
       "searches": [
-        "project coordinator"
+        "project coordinator",
+        "junior project manager",
+        "digital project manager",
+        "technical project manager"
       ],
       "title_keywords": ["project manager", "project coordinator", "delivery manager", "technical project manager", "program manager"],
       "must_also_contain": ["software", "tech", "digital", "data", "it", "agile", "product", "engineering", "platform"],

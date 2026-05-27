@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions — job-rader
+# GitHub Copilot Instructions — job-radar
 
 This file is read automatically by GitHub Copilot for repository-level context.
 Full documentation is in `CLAUDE.md` at the repo root — read that first.
@@ -9,10 +9,10 @@ Full documentation is in `CLAUDE.md` at the repo root — read that first.
 
 Personal job-hunt tool for Ari Kalantari (Sydney, AU).
 Scrapes jobs daily from Seek, Indeed, Google Jobs, LinkedIn (Apify), and Adzuna.
-Deduplicates, scores against 5 role profiles, renders an HTML Kanban dashboard,
-and sends Slack digests.
+Deduplicates, scores against 5 role profiles, and exports a CSV for morning
+review in Claude Code.
 
-**Stack:** Python 3.11 · SQLite · Flask · jobspy · Apify · Adzuna API · Claude Haiku
+**Stack:** Python 3.11 · SQLite · jobspy · Apify · Adzuna API
 
 ---
 
@@ -70,9 +70,6 @@ Follow the pattern in `adzuna_scraper.py`:
 ## Running the project
 
 ```bash
-source .venv/bin/activate
-python run.py --fast     # daily use (no AI scorer, no API cost)
-python run.py            # full run with Claude Haiku scorer
-python run.py --no-scrape --rescore  # re-score existing jobs only
-python server.py         # start Flask API (needed for Slack swipe callbacks)
+python run.py                 # daily pipeline: scrape → score → export CSV
+python run.py --no-scrape     # skip scraping, just rescore + re-export
 ```

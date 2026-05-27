@@ -1,6 +1,6 @@
 #!/bin/bash
 # catchup.sh — runs job-radar only if last scrape was more than 20 hours ago.
-# Called every 30 minutes by launchd so if Mac was asleep at 8 AM,
+# Called every 30 minutes by launchd so if Mac was asleep at midnight,
 # it catches up the moment the Mac wakes up.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

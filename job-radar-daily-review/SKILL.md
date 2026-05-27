@@ -11,12 +11,16 @@ Ari scrapes Australian job listings daily via job-radar. Each morning a fresh `j
 
 ## Step 1: Read the CSV properly
 
-The CSV contains columns: `title`, `company`, `location`, `primary_role`, `score`, `salary_raw`, `job_url`, `date_posted`, `description`.
+The CSV contains columns: `title`, `company`, `location`, `site`, `primary_role`, `score`, `salary_raw`, `min_amount`, `max_amount`, `match_reasons`, `also_fits`, `resume_match_pct`, `resume_matched_skills`, `resume_missing_skills`, `job_url`, `date_posted`, `first_seen`, `desc_quality`, `description`.
 
 **Non-negotiable rules before starting:**
 - Read the full `description` for every single row. Do not truncate or skim.
 - **Ignore the `score` column entirely.** It is a rules-based pre-filter, not a fit signal. A low score is not a rejection.
 - The CSV already contains only the last 24 hours of jobs (filtered at export time). Every row is fresh — there is no need to filter by date again.
+- `min_amount`/`max_amount` are structured salary numbers (AUD, annual). When present, prefer these over parsing `salary_raw` for the salary ask column.
+- `resume_missing_skills` is a JSON array of skills the job asks for that are NOT in Ari's resume. Use it to populate the "Biggest gap" column rather than guessing.
+- `desc_quality` is `"rich"` (500+ chars), `"partial"` (100-499), or `"stub"` (<100). Discount `"stub"` descriptions — the match signal is unreliable.
+- `match_reasons` and `also_fits` are informational context from the rules scorer. They may help as a starting point but always read the full description.
 
 ---
 

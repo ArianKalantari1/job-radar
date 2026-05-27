@@ -27,7 +27,11 @@ DEFAULT_OUT = Path(__file__).parent / "jobs_for_claude.csv"
 FIELDS = [
     "title", "company", "location", "site",
     "primary_role", "score", "salary_raw",
-    "job_url", "date_posted", "first_seen", "description",
+    "min_amount", "max_amount",
+    "match_reasons", "also_fits",
+    "resume_match_pct", "resume_matched_skills", "resume_missing_skills",
+    "job_url", "date_posted", "first_seen",
+    "desc_quality", "description",
 ]
 
 
@@ -45,6 +49,9 @@ def export(min_score: int, role: str | None, since: str | None, output: Path, sh
     query = """
         SELECT title, company, location, site,
                primary_role, score, salary_raw,
+               min_amount, max_amount,
+               match_reasons, also_fits,
+               resume_match_pct, resume_matched_skills, resume_missing_skills,
                job_url, date_posted, first_seen, description
         FROM jobs
         WHERE (dismissed = 0 OR dismissed IS NULL)
@@ -77,6 +84,8 @@ def export(min_score: int, role: str | None, since: str | None, output: Path, sh
         for row in rows:
             d = dict(row)
             d["description"] = _clean_description(d.get("description"))
+            desc_len = len(d.get("description") or "")
+            d["desc_quality"] = "rich" if desc_len >= 500 else "partial" if desc_len >= 100 else "stub"
             writer.writerow(d)
 
     label = "all time" if show_all else f"scraped since {since[:10]}"

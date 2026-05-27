@@ -13,7 +13,6 @@ cv2_consultant.txt
 *.csv
 
 # Generated outputs
-dashboard.html
 job-radar.log
 job-radar.zip
 schedule-test.log
